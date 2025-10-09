@@ -25,9 +25,9 @@ app.add_middleware(
 )
 
 # Include routers with prefixes
-app.include_router(admin.router, prefix="https://sjbit-backend.onrender.com/admin", tags=["Admin"])
-app.include_router(student.router, prefix="https://sjbit-backend.onrender.com/student", tags=["Student"])
-app.include_router(timetable.router, prefix="https://sjbit-backend.onrender.com/timetable", tags=["Timetable"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(student.router, prefix="/student", tags=["Student"])
+app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
 # Simple home route
 @app.get("/")
