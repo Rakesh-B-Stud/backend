@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from crud import get_students_by_sem_section
+from crud import get_students_by_semester_section
 
 router = APIRouter(prefix="/student", tags=["student"])
 
