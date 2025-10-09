@@ -37,12 +37,12 @@ def home():
 # --- Create a default admin if not present ---
 def create_default_admin():
     db = Session(bind=engine)
-    existing = db.query(Admin).filter_by(username="admin").first()
+    existing = db.query(Admin).filter_by(username="rakesh.b.r8b@gmail.com").first()
     if not existing:
         default_admin = Admin(username="rakesh.b.r8b@gmail.com", password="admin123")
         db.add(default_admin)
         db.commit()
-        print("✅ Default admin created: username='admin', password='admin123'")
+        print("✅ Default admin created: username='rakesh.b.r8b@gmail.com', password='admin123'")
     db.close()
 
 create_default_admin()
