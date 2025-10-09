@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from utils.timetable_generator import generate_timetable_for_section
 
-router = APIRouter(prefix="https://sjbit-backend.onrender.com/timetable", tags=["Timetable"])
+router = APIRouter(prefix="/timetable", tags=["Timetable"])
 
 @router.post("/generate")
 def generate_timetable_api(semester: int, section: str, db: Session = Depends(get_db)):
