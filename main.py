@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import admin, student, timetable
 from database import Base, engine
-
+#routes updated
 # Create database tables if they don't exist
 Base.metadata.create_all(bind=engine)
 

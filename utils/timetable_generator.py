@@ -14,7 +14,8 @@ def send_notification(message, recipients):
     # Placeholder: implement email notifications
     print(f"[Notification] To: {recipients} => {message}")
 
-def generate_timetable(db, semester: int, section: str):
+# Rename function to match import in admin.py
+def generate_timetable_for_section(db, semester: int, section: str):
     """
     Generate timetable for given semester and section
     """

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Form
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from utils.timetable_generator import generate_timetable_for_section
+from utils.timetable_generator import generate_timetable_for_section  # ✅ matches renamed function
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
