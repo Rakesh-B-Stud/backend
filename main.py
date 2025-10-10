@@ -4,7 +4,7 @@ from routes import admin, student, timetable
 from database import Base, engine
 from models import Admin
 from sqlalchemy.orm import Session
-#routes updated
+
 # Create database tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
@@ -12,8 +12,8 @@ app = FastAPI(title="SJBIT Timetable Portal API")
 
 # Allow frontend access (CORS)
 origins = [
-    "http://localhost:3000",  # local frontend testing
-    "https://timetablefrontend-one.vercel.app"
+    "http://localhost:3000",  # local testing
+    "https://timetablefrontend-one.vercel.app"  # deployed frontend
 ]
 
 app.add_middleware(
@@ -24,12 +24,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers with prefixes
+# Include routers
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(student.router, prefix="/student", tags=["Student"])
 app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
-# Simple home route
+# Root route
 @app.get("/")
 def home():
     return {"message": "Welcome to SJBIT Timetable Portal API"}
