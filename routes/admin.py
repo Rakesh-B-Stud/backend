@@ -5,7 +5,7 @@ from utils.timetable_generator import generate_timetable_for_section
 from pydantic import BaseModel
 from models import Admin
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["Admin"])
 
 def get_db():
     db = SessionLocal()
@@ -14,31 +14,18 @@ def get_db():
     finally:
         db.close()
 
-# ------------------ Default Admin Login ------------------
-DEFAULT_ADMIN = {
-    "username": "rakesh.b.r8b@gmail.com",
-    "password": "admin123"
-}
-
 class AdminLogin(BaseModel):
     username: str
     password: str
 
 @router.post("/login")
 def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
-    # check DB first
-    db_admin = db.query(Admin).filter_by(username=data.username, password=data.password).first()
-    if db_admin:
-        return {"success": True, "message": "Login successful", "name": db_admin.username}
-    
-    # fallback default admin
-    if data.username == DEFAULT_ADMIN["username"] and data.password == DEFAULT_ADMIN["password"]:
-        return {"success": True, "message": "Login successful", "name": DEFAULT_ADMIN["username"]}
-    
-    raise HTTPException(status_code=401, detail="Invalid username or password")
+    admin = db.query(Admin).filter_by(username=data.username).first()
+    if not admin or admin.password != data.password:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    return {"success": True, "name": admin.username, "message": "Login successful"}
 
-# ------------------ Generate Timetable ------------------
 @router.post("/generate_timetable")
 def generate_timetable(
     semester: int = Form(...),
