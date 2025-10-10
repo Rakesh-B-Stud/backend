@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from utils.timetable_generator import generate_timetable_for_section
 from pydantic import BaseModel
-from models import Admin  # ✅ import Admin model
+from models import Admin
 
 router = APIRouter(tags=["admin"])
 
@@ -14,31 +14,27 @@ def get_db():
     finally:
         db.close()
 
-
-# ------------------ Default Admin (Backup) ------------------
+# ------------------ Default Admin Login ------------------
 DEFAULT_ADMIN = {
-    "username": "admin",
-    "password": "admin123"  # default fallback
+    "username": "rakesh.b.r8b@gmail.com",
+    "password": "admin123"
 }
 
 class AdminLogin(BaseModel):
     username: str
     password: str
 
-
-# ------------------ Login Route ------------------
 @router.post("/login")
 def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
-    # 1️⃣ Try database admin
+    # check DB first
     db_admin = db.query(Admin).filter_by(username=data.username, password=data.password).first()
     if db_admin:
         return {"success": True, "message": "Login successful", "name": db_admin.username}
-
-    # 2️⃣ Fallback to default admin
+    
+    # fallback default admin
     if data.username == DEFAULT_ADMIN["username"] and data.password == DEFAULT_ADMIN["password"]:
-        return {"success": True, "message": "Login successful", "name": "Default Admin"}
-
-    # 3️⃣ If both fail → invalid credentials
+        return {"success": True, "message": "Login successful", "name": DEFAULT_ADMIN["username"]}
+    
     raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
