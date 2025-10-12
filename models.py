@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from database import Base
+from pydantic import BaseModel
 
 # -------------------- Admin --------------------
 class Admin(Base):
@@ -9,12 +10,11 @@ class Admin(Base):
     username = Column(String, unique=True, index=True)
     password = Column(String)
 
-# -------------------- Students --------------------
-# models.py (Student)
 
+# -------------------- Students --------------------
 class Student(Base):
     __tablename__ = "students"
-    usn = Column(String, primary_key=True)
+    usn = Column(String, primary_key=True)  # matches your CSV USN
     name = Column(String)
     email = Column(String)
     department = Column(String)
@@ -22,8 +22,7 @@ class Student(Base):
     section = Column(String)
     class_teacher = Column(String)
     password = Column(String)
-    is_first_login = Column(Boolean, default=True)   # <--- new
-
+    is_first_login = Column(Boolean, default=True)
 
 # -------------------- Teachers --------------------
 class Teacher(Base):
@@ -39,7 +38,10 @@ class Teacher(Base):
     max_sessions_per_day = Column(Integer)
     available = Column(Boolean, default=True)
 
-# -------------------- Availability --------------------
+    availability = relationship("Availability", back_populates="teacher", cascade="all, delete-orphan")
+    timetable_entries = relationship("Timetable", back_populates="teacher", cascade="all, delete-orphan")
+
+
 # -------------------- Availability --------------------
 class Availability(Base):
     __tablename__ = "availability"
@@ -63,7 +65,7 @@ class Timetable(Base):
     subject = Column(String)
     teacher_id = Column(Integer, ForeignKey("teachers.teacher_id"))
 
-    teacher = relationship("Teacher")
+    teacher = relationship("Teacher", back_populates="timetable_entries")
 
 
 # -------------------- Notifications --------------------
@@ -73,23 +75,24 @@ class Notification(Base):
     student_id = Column(String, ForeignKey("students.usn"))
     message = Column(String)
 
-from pydantic import BaseModel
 
+# -------------------- Pydantic Model --------------------
 class StudentLogin(BaseModel):
     usn: str
     password: str
 
 
-# ---------- Semester Model ----------
+# -------------------- Semester Model --------------------
 class Semester(Base):
     __tablename__ = "semesters"
     id = Column(Integer, primary_key=True, index=True)
     semester_number = Column(Integer, unique=True, nullable=False)
     department = Column(String, nullable=False)
 
-    sections = relationship("Section", back_populates="semester")
+    sections = relationship("Section", back_populates="semester", cascade="all, delete-orphan")
 
-# ---------- Section Model ----------
+
+# -------------------- Section Model --------------------
 class Section(Base):
     __tablename__ = "sections"
     id = Column(Integer, primary_key=True, index=True)
