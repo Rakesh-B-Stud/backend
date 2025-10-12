@@ -40,15 +40,17 @@ class Teacher(Base):
     available = Column(Boolean, default=True)
 
 # -------------------- Availability --------------------
+# -------------------- Availability --------------------
 class Availability(Base):
     __tablename__ = "availability"
     id = Column(Integer, primary_key=True, index=True)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"))
+    teacher_id = Column(Integer, ForeignKey("teachers.teacher_id"))
     day = Column(String)
     slot = Column(String)
     available = Column(Boolean, default=True)
 
     teacher = relationship("Teacher", back_populates="availability")
+
 
 # -------------------- Timetable --------------------
 class Timetable(Base):
@@ -59,16 +61,18 @@ class Timetable(Base):
     day = Column(String)
     slot = Column(String)
     subject = Column(String)
-    teacher_id = Column(Integer, ForeignKey("teachers.id"))
+    teacher_id = Column(Integer, ForeignKey("teachers.teacher_id"))
 
     teacher = relationship("Teacher")
+
 
 # -------------------- Notifications --------------------
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"))
+    student_id = Column(String, ForeignKey("students.usn"))
     message = Column(String)
+
 from pydantic import BaseModel
 
 class StudentLogin(BaseModel):
