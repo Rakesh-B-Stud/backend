@@ -32,13 +32,11 @@ app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
 from fastapi import FastAPI
 from routes import admin, student
-from routes import admin_semester_section  # NEW IMPORT
 
 app = FastAPI()
 
 app.include_router(admin.router)
 app.include_router(student.router)
-app.include_router(admin_semester_section.router)  # NEW ROUTER
 
 # Root route
 @app.get("/")
