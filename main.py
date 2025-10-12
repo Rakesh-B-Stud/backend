@@ -1,20 +1,21 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import admin, student, timetable
+from sqlalchemy.orm import Session
 from database import Base, engine
 from models import Admin
-from sqlalchemy.orm import Session
+from routes import admin, student, timetable
 
-# Create database tables if they don't exist
+# -------------------- Create tables --------------------
 Base.metadata.create_all(bind=engine)
 
+# -------------------- FastAPI app --------------------
 app = FastAPI(title="SJBIT Timetable Portal API")
 
-# Allow frontend access (CORS)
+# -------------------- CORS --------------------
 origins = [
-    "http://localhost:3000",  # local testing
-    "https://timetablefrontend-one.vercel.app",
-    "https://timetablefrontend-ooy3srak6-rakesh-bs-projects-efb49d55.vercel.app"  # deployed frontend
+    "http://localhost:3000",  # local frontend
+    "https://timetablefrontend-6usp63wq4-rakesh-bs-projects-efb49d55.vercel.app"
 ]
 
 app.add_middleware(
@@ -25,25 +26,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# -------------------- Routers --------------------
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(student.router, prefix="/student", tags=["Student"])
 app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
-from fastapi import FastAPI
-from routes import admin, student
-
-app = FastAPI()
-
-app.include_router(admin.router)
-app.include_router(student.router)
-
-# Root route
+# -------------------- Root route --------------------
 @app.get("/")
 def home():
     return {"message": "Welcome to SJBIT Timetable Portal API"}
 
-# --- Create a default admin if not present ---
+# -------------------- Default admin --------------------
 def create_default_admin():
     db = Session(bind=engine)
     existing = db.query(Admin).filter_by(username="rakesh.b.r8b@gmail.com").first()
@@ -51,7 +44,13 @@ def create_default_admin():
         default_admin = Admin(username="rakesh.b.r8b@gmail.com", password="admin123")
         db.add(default_admin)
         db.commit()
-        print("✅ Default admin created: username='rakesh.b.r8b@gmail.com', password='admin123'")
+        print("✅ Default admin created")
     db.close()
 
 create_default_admin()
+
+# -------------------- Run uvicorn --------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))  # Render sets PORT dynamically
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
