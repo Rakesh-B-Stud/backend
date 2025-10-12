@@ -10,24 +10,34 @@ class Admin(Base):
     password = Column(String)
 
 # -------------------- Students --------------------
+# models.py (Student)
+
 class Student(Base):
     __tablename__ = "students"
-    id = Column(Integer, primary_key=True, index=True)
-    usn = Column(String, unique=True)
-    email = Column(String, unique=True)
+    usn = Column(String, primary_key=True)
     name = Column(String)
-    semester = Column(Integer)
+    email = Column(String)
+    department = Column(String)
+    semester = Column(String)
     section = Column(String)
+    class_teacher = Column(String)
+    password = Column(String)
+    is_first_login = Column(Boolean, default=True)   # <--- new
+
 
 # -------------------- Teachers --------------------
 class Teacher(Base):
     __tablename__ = "teachers"
-    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     email = Column(String, unique=True)
-    subject = Column(String)
-    # remove single availability field; use Availability table instead
-    availability = relationship("Availability", back_populates="teacher")
+    department = Column(String)
+    semester_handling = Column(String)
+    section_handling = Column(String)
+    subjects_capable = Column(String)
+    subject_credits = Column(Integer)
+    max_sessions_per_day = Column(Integer)
+    available = Column(Boolean, default=True)
 
 # -------------------- Availability --------------------
 class Availability(Base):
@@ -59,3 +69,28 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"))
     message = Column(String)
+from pydantic import BaseModel
+
+class StudentLogin(BaseModel):
+    usn: str
+    password: str
+
+
+# ---------- Semester Model ----------
+class Semester(Base):
+    __tablename__ = "semesters"
+    id = Column(Integer, primary_key=True, index=True)
+    semester_number = Column(Integer, unique=True, nullable=False)
+    department = Column(String, nullable=False)
+
+    sections = relationship("Section", back_populates="semester")
+
+# ---------- Section Model ----------
+class Section(Base):
+    __tablename__ = "sections"
+    id = Column(Integer, primary_key=True, index=True)
+    section_name = Column(String, nullable=False)
+    semester_id = Column(Integer, ForeignKey("semesters.id"))
+    class_teacher = Column(String, nullable=True)
+
+    semester = relationship("Semester", back_populates="sections")

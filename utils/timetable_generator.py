@@ -14,20 +14,25 @@ def send_notification(message, recipients):
     # Placeholder: implement email notifications
     print(f"[Notification] To: {recipients} => {message}")
 
-# Rename function to match import in admin.py
-def generate_timetable_for_section(db, semester: int, section: str):
+def generate_timetable_for_section(db, semester: int, section: str, class_teacher_name: str):
     """
-    Generate timetable for given semester and section
+    Generate timetable for given semester, section, and assign the class teacher.
     """
     students = get_students_by_semester_section(db, semester, section)
     if not students:
         return []
 
+    # Find the class teacher object
+    class_teacher = db.query(Teacher).filter(Teacher.name == class_teacher_name).first()
+    if not class_teacher:
+        raise Exception(f"Class Teacher '{class_teacher_name}' not found")
+
     # Get all subjects in this semester from assigned teachers
     subjects = set()
     for student in students:
-        for teacher in db.query(Teacher).all():
-            subjects.add(teacher.subject)
+        for teacher in db.query(Teacher).filter(Teacher.semester_handling == semester).all():
+            for subj in teacher.subjects_capable.split(","):
+                subjects.add(subj.strip())
     subjects = list(subjects)
 
     timetable = []
@@ -36,6 +41,13 @@ def generate_timetable_for_section(db, semester: int, section: str):
     for day in DAYS:
         for slot in SLOTS:
             if "Break" in slot or "Lunch" in slot:
+                continue
+
+            # Optional: assign class teacher in first slot of day for homeroom/advisory
+            if slot == "8:30-9:30":
+                entry = create_timetable_entry(db, day, slot, semester, section, class_teacher.id, "Class Teacher")
+                timetable.append(entry)
+                teacher_slot_count[class_teacher.id][day] += 1
                 continue
 
             for subj in subjects:
