@@ -2,6 +2,16 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from database import Base
 from pydantic import BaseModel
+from database import Base, engine
+from models import *
+
+# Drop all tables first (if needed)
+# Base.metadata.drop_all(bind=engine)   # Optional: only if you want full reset
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+print("✅ Tables recreated successfully")
+
 
 # -------------------- Admin --------------------
 class Admin(Base):
