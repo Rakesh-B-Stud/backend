@@ -15,7 +15,7 @@ app = FastAPI(title="SJBIT Timetable Portal API")
 # -------------------- CORS --------------------
 origins = [
     "http://localhost:3000",  # local frontend
-    "https://timetablefrontend-6usp63wq4-rakesh-bs-projects-efb49d55.vercel.app"
+    "https://timetablefrontend-oqdjitztf-rakesh-bs-projects-efb49d55.vercel.app"
 ]
 
 app.add_middleware(

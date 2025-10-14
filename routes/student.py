@@ -2,12 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Student, Timetable
-from schemas import StudentLogin  # <-- make sure this file exists
-from crud import get_students_by_semester_section
+from schemas import StudentLogin  # Make sure schemas.py has this Pydantic model
 
-router = APIRouter(prefix="/student", tags=["student"])
+router = APIRouter(prefix="/student", tags=["Student"])
 
-# Dependency to get DB session
+# ------------------- DB Session -------------------
 def get_db():
     db = SessionLocal()
     try:
@@ -15,8 +14,7 @@ def get_db():
     finally:
         db.close()
 
-
-# ✅ Fetch timetable by semester and section
+# ------------------- Fetch Timetable -------------------
 @router.get("/timetable/{semester}/{section}")
 def get_timetable(semester: int, section: str, db: Session = Depends(get_db)):
     timetables = db.query(Timetable).filter(
@@ -25,8 +23,7 @@ def get_timetable(semester: int, section: str, db: Session = Depends(get_db)):
     ).all()
     return timetables
 
-
-# ✅ Student login
+# ------------------- Student Login -------------------
 @router.post("/login")
 def student_login(data: StudentLogin, db: Session = Depends(get_db)):
     student = db.query(Student).filter_by(usn=data.usn).first()
@@ -42,8 +39,7 @@ def student_login(data: StudentLogin, db: Session = Depends(get_db)):
         "first_login": student.is_first_login
     }
 
-
-# ✅ Change password
+# ------------------- Change Password -------------------
 @router.post("/change_password")
 def change_password(usn: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
     student = db.query(Student).filter_by(usn=usn).first()
