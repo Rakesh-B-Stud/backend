@@ -31,32 +31,29 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
 # ------------------- Upload Teachers CSV -------------------
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Please upload a valid CSV file")
-
-    contents = await file.read()
-    decoded = contents.decode("utf-8").splitlines()
-    reader = csv.DictReader(decoded)
-    count = 0
-    for row in reader:
-        try:
+    try:
+        contents = await file.read()
+        decoded = contents.decode("utf-8").splitlines()
+        reader = csv.DictReader(decoded)
+        for row in reader:
             teacher = Teacher(
-                name=row["name"].strip(),
-                email=row["email"].strip(),
-                department=row["department"].strip(),
-                semester_handling=row["semester_handling"].strip(),
-                section_handling=row["section_handling"].strip(),
-                subjects_capable=row["subjects_capable"].strip(),
-                subject_credits=int(row["subject_credits"].strip()),
-                max_sessions_per_day=int(row["max_sessions_per_day"].strip()),
-                available=True
+                teacher_id=int(row["teacher_id"]),
+                name=row["name"],
+                email=row["email"],
+                department=row["department"],
+                semester_handling=row["semester_handling"],
+                section_handling=row["section_handling"],
+                subjects_capable=row["subjects_capable"],
+                subject_credits=int(row["subject_credits"]),
+                max_sessions_per_day=int(row["max_sessions_per_day"]),
+                available=row["available"].lower() == "true"
             )
             db.merge(teacher)
-            count += 1
-        except KeyError as e:
-            raise HTTPException(status_code=400, detail=f"Missing column in CSV: {e}")
-    db.commit()
-    return {"msg": f"✅ {count} teachers uploaded successfully"}
+        db.commit()
+        return {"msg": "✅ Teachers uploaded successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
 
 # ------------------- Upload Students CSV -------------------
 @router.post("/upload_students")
