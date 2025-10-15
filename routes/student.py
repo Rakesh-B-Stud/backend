@@ -26,18 +26,25 @@ def get_timetable(semester: int, section: str, db: Session = Depends(get_db)):
 # ------------------- Student Login -------------------
 @router.post("/login")
 def student_login(data: StudentLogin, db: Session = Depends(get_db)):
-    student = db.query(Student).filter_by(usn=data.usn).first()
-    if not student or student.password != data.password:
-        raise HTTPException(status_code=401, detail="Invalid USN or password")
+    try:
+        student = db.query(Student).filter_by(usn=data.usn.strip()).first()
+        if not student:
+            raise HTTPException(status_code=401, detail="Invalid USN or password")
 
-    return {
-        "success": True,
-        "name": student.name,
-        "usn": student.usn,
-        "section": student.section,
-        "department": student.department,
-        "first_login": student.is_first_login
-    }
+        if student.password != data.password.strip():
+            raise HTTPException(status_code=401, detail="Invalid USN or password")
+
+        return {
+            "success": True,
+            "name": student.name,
+            "usn": student.usn,
+            "section": student.section,
+            "department": student.department,
+            "first_login": student.is_first_login
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 # ------------------- Change Password -------------------
 @router.post("/change_password")
