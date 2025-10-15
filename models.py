@@ -37,11 +37,12 @@ class Student(Base):
 # -------------------- Teachers --------------------
 class Teacher(Base):
     __tablename__ = "teachers"
-    id = Column(Integer, primary_key=True, index=True)  # NEW PK
-    teacher_id = Column(Integer, index=True)            
-    name = Column(String)
-    email = Column(String)
+    teacher_id = Column(Integer, primary_key=True, index=True)  # PK
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)  # remove UNIQUE constraint for CSV flexibility
     department = Column(String)
+    
+    # Flattened CSV info
     semester_handling = Column(String)
     section_handling = Column(String)
     subjects_capable = Column(String)
@@ -51,7 +52,6 @@ class Teacher(Base):
 
     availability = relationship("Availability", back_populates="teacher", cascade="all, delete-orphan")
     timetable_entries = relationship("Timetable", back_populates="teacher", cascade="all, delete-orphan")
-
 
 
 # -------------------- Availability --------------------
@@ -78,6 +78,7 @@ class Timetable(Base):
     teacher_id = Column(Integer, ForeignKey("teachers.teacher_id"))
 
     teacher = relationship("Teacher", back_populates="timetable_entries")
+
 
 
 # -------------------- Notifications --------------------

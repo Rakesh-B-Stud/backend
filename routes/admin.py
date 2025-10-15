@@ -28,15 +28,13 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
-# ------------------- Upload Teachers CSV -------------------@router.post("/upload_teachers")
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
     import csv
 
+    # Map CSV headers to model fields
     header_map = {
         "Teacher ID": "teacher_id",
-        "teacher id": "teacher_id",
-        "TeacherID": "teacher_id",
         "Name": "name",
         "Email": "email",
         "Department": "department",
@@ -49,16 +47,11 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
     }
 
     try:
-        # 1️⃣ Read file and handle BOM
         contents = await file.read()
-        decoded = contents.decode("utf-8-sig").splitlines()  # removes BOM if present
-
-        # 2️⃣ CSV reader and clean headers
+        decoded = contents.decode("utf-8-sig").splitlines()  # remove BOM
         reader = csv.DictReader(decoded)
         reader.fieldnames = [header_map.get(h.strip(), h.strip()) for h in reader.fieldnames]
-        print("✅ CSV Headers:", reader.fieldnames)  # DEBUG
 
-        # 3️⃣ Process each row
         for row in reader:
             teacher_id = int(row["teacher_id"].strip())
             name = row["name"].strip()
@@ -71,13 +64,9 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
             max_sessions_per_day = int(row["max_sessions_per_day"].strip())
             available = row["available"].strip().lower() == "true"
 
-            # 4️⃣ Check if teacher exists by ID or email
-            teacher = db.query(Teacher).filter(
-                (Teacher.teacher_id == teacher_id) | (Teacher.email == email)
-            ).first()
-
+            # ✅ Merge: insert new or update existing teacher
+            teacher = db.query(Teacher).filter_by(teacher_id=teacher_id).first()
             if teacher:
-                # Update existing teacher
                 teacher.name = name
                 teacher.email = email
                 teacher.department = department
@@ -88,7 +77,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 teacher.max_sessions_per_day = max_sessions_per_day
                 teacher.available = available
             else:
-                # Insert new teacher
                 teacher = Teacher(
                     teacher_id=teacher_id,
                     name=name,
@@ -103,16 +91,9 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 )
                 db.add(teacher)
 
-        # 5️⃣ Commit all changes
         db.commit()
         return {"msg": "✅ Teachers uploaded successfully (new + updated)"}
 
-    except KeyError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Missing column in CSV: {str(e)}")
-    except ValueError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Invalid value in CSV: {str(e)}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
