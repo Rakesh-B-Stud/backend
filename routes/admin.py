@@ -28,33 +28,62 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
-# ------------------- Upload Teachers CSV -------------------
-@router.post("/upload_teachers")
+# ------------------- Upload Teachers CSV -------------------@router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
     import csv
+
     try:
+        # 1️⃣ Read file and handle UTF-8 BOM
         contents = await file.read()
-        decoded = contents.decode("utf-8").splitlines()
+        decoded = contents.decode("utf-8-sig").splitlines()  # removes BOM if present
+
+        # 2️⃣ Create CSV reader and clean headers
         reader = csv.DictReader(decoded)
+        reader.fieldnames = [h.strip() for h in reader.fieldnames]  # remove extra spaces
+
+        # 3️⃣ Process each row
         for row in reader:
+            # Strip all string fields
+            teacher_id = int(row["teacher_id"].strip())
+            name = row["name"].strip()
+            email = row["email"].strip()
+            department = row["department"].strip()
+            semester_handling = row["semester_handling"].strip()
+            section_handling = row["section_handling"].strip()
+            subjects_capable = row["subjects_capable"].strip()
+            subject_credits = int(row["subject_credits"].strip())
+            max_sessions_per_day = int(row["max_sessions_per_day"].strip())
+            available = row["available"].strip().lower() == "true"
+
+            # 4️⃣ Create teacher row and add to DB
             teacher = Teacher(
-                teacher_id=int(row["teacher_id"].strip()),
-                name=row["name"].strip(),
-                email=row["email"].strip(),
-                department=row["department"].strip(),
-                semester_handling=row["semester_handling"].strip(),
-                section_handling=row["section_handling"].strip(),
-                subjects_capable=row["subjects_capable"].strip(),
-                subject_credits=int(row["subject_credits"].strip()),
-                max_sessions_per_day=int(row["max_sessions_per_day"].strip()),
-                available=row["available"].strip().lower() == "true"
+                teacher_id=teacher_id,
+                name=name,
+                email=email,
+                department=department,
+                semester_handling=semester_handling,
+                section_handling=section_handling,
+                subjects_capable=subjects_capable,
+                subject_credits=subject_credits,
+                max_sessions_per_day=max_sessions_per_day,
+                available=available
             )
-            db.add(teacher)   # ✅ insert new row
+            db.add(teacher)  # insert new row (surrogate PK auto-generates)
+
+        # 5️⃣ Commit all rows
         db.commit()
         return {"msg": "✅ Teachers uploaded successfully"}
+
+    except KeyError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Missing column in CSV: {str(e)}")
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Invalid value in CSV: {str(e)}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
+
 
 
 # ------------------- Upload Students CSV -------------------
