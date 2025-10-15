@@ -38,9 +38,9 @@ class Student(Base):
 class Teacher(Base):
     __tablename__ = "teachers"
     id = Column(Integer, primary_key=True, index=True)  # NEW PK
-    teacher_id = Column(Integer, index=True)            # original teacher ID
+    teacher_id = Column(Integer, index=True)            
     name = Column(String)
-    email = Column(String, unique=True)
+    email = Column(String)
     department = Column(String)
     semester_handling = Column(String)
     section_handling = Column(String)
