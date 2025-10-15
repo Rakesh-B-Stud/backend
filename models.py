@@ -37,7 +37,8 @@ class Student(Base):
 # -------------------- Teachers --------------------
 class Teacher(Base):
     __tablename__ = "teachers"
-    teacher_id = Column(Integer,index=True)
+    id = Column(Integer, primary_key=True, index=True)  # NEW PK
+    teacher_id = Column(Integer, index=True)            # original teacher ID
     name = Column(String)
     email = Column(String, unique=True)
     department = Column(String)
@@ -50,6 +51,7 @@ class Teacher(Base):
 
     availability = relationship("Availability", back_populates="teacher", cascade="all, delete-orphan")
     timetable_entries = relationship("Timetable", back_populates="teacher", cascade="all, delete-orphan")
+
 
 
 # -------------------- Availability --------------------
