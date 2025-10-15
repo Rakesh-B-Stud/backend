@@ -37,7 +37,7 @@ class Student(Base):
 # -------------------- Teachers --------------------
 class Teacher(Base):
     __tablename__ = "teachers"
-    teacher_id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer,index=True)
     name = Column(String)
     email = Column(String, unique=True)
     department = Column(String)
