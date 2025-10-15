@@ -29,17 +29,36 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
 # ------------------- Upload Teachers CSV -------------------@router.post("/upload_teachers")
+@router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
     import csv
 
+    # Optional header mapping (CSV headers → model fields)
+    header_map = {
+        "Teacher ID": "teacher_id",
+        "teacher id": "teacher_id",
+        "TeacherID": "teacher_id",
+        "Name": "name",
+        "Email": "email",
+        "Department": "department",
+        "Semester Handling": "semester_handling",
+        "Section Handling": "section_handling",
+        "Subjects Capable": "subjects_capable",
+        "Subject Credits": "subject_credits",
+        "Max Sessions Per Day": "max_sessions_per_day",
+        "Available": "available",
+    }
+
     try:
-        # 1️⃣ Read file and handle UTF-8 BOM
+        # 1️⃣ Read file and handle BOM
         contents = await file.read()
         decoded = contents.decode("utf-8-sig").splitlines()  # removes BOM if present
 
         # 2️⃣ Create CSV reader and clean headers
         reader = csv.DictReader(decoded)
-        reader.fieldnames = [h.strip() for h in reader.fieldnames]  # remove extra spaces
+        reader.fieldnames = [header_map.get(h.strip(), h.strip()) for h in reader.fieldnames]  # map headers
+
+        print("✅ CSV Headers:", reader.fieldnames)  # DEBUG
 
         # 3️⃣ Process each row
         for row in reader:
@@ -55,7 +74,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
             max_sessions_per_day = int(row["max_sessions_per_day"].strip())
             available = row["available"].strip().lower() == "true"
 
-            # 4️⃣ Create teacher row and add to DB
+            # 4️⃣ Insert row
             teacher = Teacher(
                 teacher_id=teacher_id,
                 name=name,
@@ -68,7 +87,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 max_sessions_per_day=max_sessions_per_day,
                 available=available
             )
-            db.add(teacher)  # insert new row (surrogate PK auto-generates)
+            db.add(teacher)
 
         # 5️⃣ Commit all rows
         db.commit()
@@ -83,7 +102,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
-
 
 
 # ------------------- Upload Students CSV -------------------
