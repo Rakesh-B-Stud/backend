@@ -92,7 +92,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 db.add(teacher)
 
         db.commit()
-        return {"msg": "✅ Teachers uploaded successfully (new + updated)"}
+        return {"msg": "✅ Teachers uploaded successfull (new + updated)"}
 
     except Exception as e:
         db.rollback()
