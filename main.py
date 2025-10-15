@@ -30,7 +30,7 @@ app.add_middleware(
 
 # -------------------- Routers --------------------
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
-app.include_router(student.router, tags=["Student"])
+app.include_router(student.router, prefix="/student", tags=["Student"])
 app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
 # -------------------- Root route --------------------
