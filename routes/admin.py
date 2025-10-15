@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from utils.timetable_generator import generate_timetable_for_section
 from pydantic import BaseModel
-from models import Admin, Teacher, Student
+from models import Admin, Teacher, Student, Availability, Semester, Section
 import csv
 
 router = APIRouter(tags=["Admin"])
@@ -16,10 +16,12 @@ def get_db():
     finally:
         db.close()
 
+
 # ------------------- Admin Login -------------------
 class AdminLogin(BaseModel):
     username: str
     password: str
+
 
 @router.post("/login")
 def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
@@ -28,11 +30,10 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
+
+# ------------------- Upload Teachers CSV -------------------
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    import csv
-
-    # Map CSV headers to model fields
     header_map = {
         "Teacher ID": "teacher_id",
         "Name": "name",
@@ -48,10 +49,11 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
 
     try:
         contents = await file.read()
-        decoded = contents.decode("utf-8-sig").splitlines()  # remove BOM
+        decoded = contents.decode("utf-8-sig").splitlines()
         reader = csv.DictReader(decoded)
         reader.fieldnames = [header_map.get(h.strip(), h.strip()) for h in reader.fieldnames]
 
+        teachers_added = 0
         for row in reader:
             teacher_id = int(row["teacher_id"].strip())
             name = row["name"].strip()
@@ -64,9 +66,9 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
             max_sessions_per_day = int(row["max_sessions_per_day"].strip())
             available = row["available"].strip().lower() == "true"
 
-            # ✅ Merge: insert new or update existing teacher
             teacher = db.query(Teacher).filter_by(teacher_id=teacher_id).first()
             if teacher:
+                # Update
                 teacher.name = name
                 teacher.email = email
                 teacher.department = department
@@ -77,6 +79,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 teacher.max_sessions_per_day = max_sessions_per_day
                 teacher.available = available
             else:
+                # Insert
                 teacher = Teacher(
                     teacher_id=teacher_id,
                     name=name,
@@ -87,12 +90,27 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                     subjects_capable=subjects_capable,
                     subject_credits=subject_credits,
                     max_sessions_per_day=max_sessions_per_day,
-                    available=available
+                    available=available,
                 )
                 db.add(teacher)
+                teachers_added += 1
+                db.flush()  # get teacher.id
+
+                # ✅ Create default availability (5 days × 5 slots)
+                days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+                slots = ["1", "2", "3", "4", "5"]
+                for d in days:
+                    for s in slots:
+                        avail = Availability(
+                            teacher_id=teacher.teacher_id,
+                            day=d,
+                            slot=s,
+                            available=True
+                        )
+                        db.add(avail)
 
         db.commit()
-        return {"msg": "✅ Teachers uploaded successfull (new + updated)"}
+        return {"msg": f"✅ {teachers_added} teachers uploaded/updated successfully with availability"}
 
     except Exception as e:
         db.rollback()
@@ -106,9 +124,12 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
         raise HTTPException(status_code=400, detail="Please upload a valid CSV file")
 
     contents = await file.read()
-    decoded = contents.decode("utf-8").splitlines()
+    decoded = contents.decode("utf-8-sig").splitlines()
     reader = csv.DictReader(decoded)
-    count = 0
+
+    students_added = 0
+    semester_section_pairs = set()
+
     for row in reader:
         try:
             student = Student(
@@ -123,11 +144,58 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
                 is_first_login=True
             )
             db.merge(student)
-            count += 1
+            students_added += 1
+
+            # Track unique semester-section
+            semester_section_pairs.add((
+                int(row["semester"].strip()),
+                row["department"].strip(),
+                row["section"].strip(),
+                row.get("class_teacher", "").strip()
+            ))
+
         except KeyError as e:
             raise HTTPException(status_code=400, detail=f"Missing column in CSV: {e}")
+
+    # ✅ Populate Semesters and Sections
+    for semester_number, department, section_name, class_teacher in semester_section_pairs:
+        semester_obj = (
+            db.query(Semester)
+            .filter_by(semester_number=semester_number, department=department)
+            .first()
+        )
+        if not semester_obj:
+            semester_obj = Semester(
+                semester_number=semester_number,
+                department=department
+            )
+            db.add(semester_obj)
+            db.flush()
+
+        # Add Section if missing
+        section_obj = (
+            db.query(Section)
+            .filter_by(section_name=section_name, semester_id=semester_obj.id)
+            .first()
+        )
+        if not section_obj:
+            section_obj = Section(
+                section_name=section_name,
+                semester_id=semester_obj.id,
+                class_teacher=class_teacher
+            )
+            db.add(section_obj)
+
     db.commit()
-    return {"msg": f"✅ {count} students uploaded successfully"}
+    return {"msg": f"✅ {students_added} students uploaded successfully with semesters & sections created"}
+
+
+# ------------------- Get Teachers -------------------
+@router.get("/get_teachers")
+def get_teachers(db: Session = Depends(get_db)):
+    teachers = db.query(Teacher).all()
+    return teachers
+
 
 # ------------------- Generate Timetable -------------------
 @router.post("/generate_timetable")

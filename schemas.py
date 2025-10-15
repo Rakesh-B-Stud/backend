@@ -6,6 +6,7 @@ class AdminLogin(BaseModel):
 
 class StudentLogin(BaseModel):
     usn: str
+    password: str
 
 class TeacherBase(BaseModel):
     name: str
