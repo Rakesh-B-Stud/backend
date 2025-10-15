@@ -17,7 +17,7 @@ origins = [
     "http://localhost:3000",  # local frontend
     "https://timetablefrontend-one.vercel.app",
     "https://timetablefrontend-ooy3srak6-rakesh-bs-projects-efb49d55.vercel.app",
-    "https://timetablefrontend-ebcb8pm0k-rakesh-bs-projects-efb49d55.vercel.app"
+    "https://timetablefrontend-cllyf8k4z-rakesh-bs-projects-efb49d55.vercel.app"
 ]
 
 app.add_middleware(
@@ -30,7 +30,9 @@ app.add_middleware(
 
 # -------------------- Routers --------------------
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
-app.include_router(student.router, prefix="/student", tags=["Student"])
+# main.py
+app.include_router(student.router)  # prefix already in router
+
 app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
 
 # -------------------- Root route --------------------

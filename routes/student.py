@@ -4,7 +4,8 @@ from database import SessionLocal
 from models import Student, Timetable
 from schemas import StudentLogin  # Make sure schemas.py has this Pydantic model
 
-router = APIRouter(tags=["Student"])
+router = APIRouter(prefix="/student", tags=["Student"])
+
 
 # ------------------- DB Session -------------------
 def get_db():

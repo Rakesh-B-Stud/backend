@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from database import SessionLocal
+from models import Admin, Teacher, Student, Availability, Semester, Section
 from utils.timetable_generator import generate_timetable_for_section
 from pydantic import BaseModel
-from models import Admin, Teacher, Student, Availability, Semester, Section
 import csv
 
 router = APIRouter(tags=["Admin"])
@@ -16,12 +16,10 @@ def get_db():
     finally:
         db.close()
 
-
 # ------------------- Admin Login -------------------
 class AdminLogin(BaseModel):
     username: str
     password: str
-
 
 @router.post("/login")
 def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
@@ -30,8 +28,7 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
-
-# ------------------- Upload Teachers CSV -------------------
+# ------------------- Upload Teachers -------------------
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
     header_map = {
@@ -68,7 +65,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
 
             teacher = db.query(Teacher).filter_by(teacher_id=teacher_id).first()
             if teacher:
-                # Update
+                # Update existing
                 teacher.name = name
                 teacher.email = email
                 teacher.department = department
@@ -79,7 +76,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 teacher.max_sessions_per_day = max_sessions_per_day
                 teacher.available = available
             else:
-                # Insert
+                # Insert new teacher
                 teacher = Teacher(
                     teacher_id=teacher_id,
                     name=name,
@@ -90,24 +87,23 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                     subjects_capable=subjects_capable,
                     subject_credits=subject_credits,
                     max_sessions_per_day=max_sessions_per_day,
-                    available=available,
+                    available=available
                 )
                 db.add(teacher)
                 teachers_added += 1
                 db.flush()  # get teacher.id
 
-                # ✅ Create default availability (5 days × 5 slots)
-                days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
-                slots = ["1", "2", "3", "4", "5"]
+                # Add default availability for 5 days x 7 slots
+                days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                slots = ["1","2","3","4","5","6","7"]
                 for d in days:
                     for s in slots:
-                        avail = Availability(
+                        db.add(Availability(
                             teacher_id=teacher.teacher_id,
                             day=d,
                             slot=s,
                             available=True
-                        )
-                        db.add(avail)
+                        ))
 
         db.commit()
         return {"msg": f"✅ {teachers_added} teachers uploaded/updated successfully with availability"}
@@ -116,8 +112,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
 
-
-# ------------------- Upload Students CSV -------------------
+# ------------------- Upload Students -------------------
 @router.post("/upload_students")
 async def upload_students(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename.endswith(".csv"):
@@ -139,7 +134,7 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
                 department=row["department"].strip(),
                 semester=row["semester"].strip(),
                 section=row["section"].strip(),
-                class_teacher=row.get("class_teacher", "").strip(),
+                class_teacher=row.get("class_teacher","").strip(),
                 password=row["password"].strip(),
                 is_first_login=True
             )
@@ -151,44 +146,26 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
                 int(row["semester"].strip()),
                 row["department"].strip(),
                 row["section"].strip(),
-                row.get("class_teacher", "").strip()
+                row.get("class_teacher","").strip()
             ))
 
         except KeyError as e:
             raise HTTPException(status_code=400, detail=f"Missing column in CSV: {e}")
 
-    # ✅ Populate Semesters and Sections
+    # Populate Semesters and Sections
     for semester_number, department, section_name, class_teacher in semester_section_pairs:
-        semester_obj = (
-            db.query(Semester)
-            .filter_by(semester_number=semester_number, department=department)
-            .first()
-        )
+        semester_obj = db.query(Semester).filter_by(semester_number=semester_number, department=department).first()
         if not semester_obj:
-            semester_obj = Semester(
-                semester_number=semester_number,
-                department=department
-            )
+            semester_obj = Semester(semester_number=semester_number, department=department)
             db.add(semester_obj)
             db.flush()
 
-        # Add Section if missing
-        section_obj = (
-            db.query(Section)
-            .filter_by(section_name=section_name, semester_id=semester_obj.id)
-            .first()
-        )
+        section_obj = db.query(Section).filter_by(section_name=section_name, semester_id=semester_obj.id).first()
         if not section_obj:
-            section_obj = Section(
-                section_name=section_name,
-                semester_id=semester_obj.id,
-                class_teacher=class_teacher
-            )
-            db.add(section_obj)
+            db.add(Section(section_name=section_name, semester_id=semester_obj.id, class_teacher=class_teacher))
 
     db.commit()
     return {"msg": f"✅ {students_added} students uploaded successfully with semesters & sections created"}
-
 
 # ------------------- Get Teachers -------------------
 @router.get("/get_teachers")
@@ -196,6 +173,29 @@ def get_teachers(db: Session = Depends(get_db)):
     teachers = db.query(Teacher).all()
     return teachers
 
+# ------------------- Get Availability -------------------
+@router.get("/get_availability/{teacher_id}")
+def get_availability(teacher_id: int, db: Session = Depends(get_db)):
+    avail = db.query(Availability).filter_by(teacher_id=teacher_id).all()
+    return [{"day": a.day, "slot": a.slot, "available": a.available} for a in avail]
+
+# ------------------- Update Availability -------------------
+@router.post("/update_availability")
+def update_availability(
+    teacher_id: int = Form(...),
+    day: str = Form(...),
+    slot: str = Form(...),
+    available: bool = Form(...),
+    db: Session = Depends(get_db)
+):
+    avail = db.query(Availability).filter_by(teacher_id=teacher_id, day=day, slot=slot).first()
+    if not avail:
+        avail = Availability(teacher_id=teacher_id, day=day, slot=slot, available=available)
+        db.add(avail)
+    else:
+        avail.available = available
+    db.commit()
+    return {"success": True, "msg": "Availability updated"}
 
 # ------------------- Generate Timetable -------------------
 @router.post("/generate_timetable")
