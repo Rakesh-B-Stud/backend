@@ -33,7 +33,6 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
     import csv
 
-    # Optional header mapping (CSV headers → model fields)
     header_map = {
         "Teacher ID": "teacher_id",
         "teacher id": "teacher_id",
@@ -54,15 +53,13 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
         contents = await file.read()
         decoded = contents.decode("utf-8-sig").splitlines()  # removes BOM if present
 
-        # 2️⃣ Create CSV reader and clean headers
+        # 2️⃣ CSV reader and clean headers
         reader = csv.DictReader(decoded)
-        reader.fieldnames = [header_map.get(h.strip(), h.strip()) for h in reader.fieldnames]  # map headers
-
+        reader.fieldnames = [header_map.get(h.strip(), h.strip()) for h in reader.fieldnames]
         print("✅ CSV Headers:", reader.fieldnames)  # DEBUG
 
         # 3️⃣ Process each row
         for row in reader:
-            # Strip all string fields
             teacher_id = int(row["teacher_id"].strip())
             name = row["name"].strip()
             email = row["email"].strip()
@@ -74,24 +71,41 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
             max_sessions_per_day = int(row["max_sessions_per_day"].strip())
             available = row["available"].strip().lower() == "true"
 
-            # 4️⃣ Insert row
-            teacher = Teacher(
-                teacher_id=teacher_id,
-                name=name,
-                email=email,
-                department=department,
-                semester_handling=semester_handling,
-                section_handling=section_handling,
-                subjects_capable=subjects_capable,
-                subject_credits=subject_credits,
-                max_sessions_per_day=max_sessions_per_day,
-                available=available
-            )
-            db.add(teacher)
+            # 4️⃣ Check if teacher exists by ID or email
+            teacher = db.query(Teacher).filter(
+                (Teacher.teacher_id == teacher_id) | (Teacher.email == email)
+            ).first()
 
-        # 5️⃣ Commit all rows
+            if teacher:
+                # Update existing teacher
+                teacher.name = name
+                teacher.email = email
+                teacher.department = department
+                teacher.semester_handling = semester_handling
+                teacher.section_handling = section_handling
+                teacher.subjects_capable = subjects_capable
+                teacher.subject_credits = subject_credits
+                teacher.max_sessions_per_day = max_sessions_per_day
+                teacher.available = available
+            else:
+                # Insert new teacher
+                teacher = Teacher(
+                    teacher_id=teacher_id,
+                    name=name,
+                    email=email,
+                    department=department,
+                    semester_handling=semester_handling,
+                    section_handling=section_handling,
+                    subjects_capable=subjects_capable,
+                    subject_credits=subject_credits,
+                    max_sessions_per_day=max_sessions_per_day,
+                    available=available
+                )
+                db.add(teacher)
+
+        # 5️⃣ Commit all changes
         db.commit()
-        return {"msg": "✅ Teachers uploaded successfully"}
+        return {"msg": "✅ Teachers uploaded successfully (new + updated)"}
 
     except KeyError as e:
         db.rollback()
