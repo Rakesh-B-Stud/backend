@@ -175,7 +175,7 @@ def get_teachers(db: Session = Depends(get_db)):
         {
             "teacher_id": t.teacher_id,
             "name": t.name,
-            "subject": t.subjects_capable
+            "subjects_capable": t.subjects_capable
         } for t in teachers
     ]
 
