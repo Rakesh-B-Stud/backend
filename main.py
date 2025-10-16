@@ -17,7 +17,7 @@ origins = [
     "http://localhost:3000",  # local frontend
     "https://timetablefrontend-one.vercel.app",
     "https://timetablefrontend-ooy3srak6-rakesh-bs-projects-efb49d55.vercel.app",
-    "https://timetablefrontend-pfoseigwi-rakesh-bs-projects-efb49d55.vercel.app"
+    "https://timetablefrontend-4qwvzybpj-rakesh-bs-projects-efb49d55.vercel.app"
 ]
 
 app.add_middleware(
