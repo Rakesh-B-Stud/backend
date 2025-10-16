@@ -175,54 +175,49 @@ def get_teachers(db: Session = Depends(get_db)):
         {
             "teacher_id": t.teacher_id,
             "name": t.name,
-            "subjects_capable": t.subjects_capable
+            "subjects_capable": [s.strip() for s in t.subjects_capable.split(",")] if t.subjects_capable else []
         } for t in teachers
     ]
 
 
 # ------------------- Get Availability -------------------
-@router.get("/get_availability/{teacher_id}")
-def get_availability(teacher_id: int, db: Session = Depends(get_db)):
-    records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
-
-    # If no records exist, create defaults dynamically
+@router.get("/get_availability/{teacher_id}/{subject}")
+def get_availability(teacher_id: int, subject: str, db: Session = Depends(get_db)):
+    records = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject).all()
     if not records:
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
         for d in days:
             for s in range(1, 8):
                 db.add(Availability(
                     teacher_id=teacher_id,
+                    subject=subject,
                     day=d,
                     slot=str(s),
                     available=True
                 ))
         db.commit()
-        records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
-
+        records = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject).all()
     return [{"day": r.day, "slot": r.slot, "available": r.available} for r in records]
 
 
-# ------------------- Update Availability -------------------
 @router.post("/update_availability")
 def update_availability(
     teacher_id: int = Form(...),
+    subject: str = Form(...),
     day: str = Form(...),
     slot: str = Form(...),
-    available: str = Form(...),  # received as "true"/"false" from JS
+    available: str = Form(...),
     db: Session = Depends(get_db)
 ):
     available_bool = True if available.lower() == "true" else False
-
-    record = db.query(Availability).filter_by(teacher_id=teacher_id, day=day, slot=slot).first()
+    record = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject, day=day, slot=slot).first()
     if not record:
-        record = Availability(teacher_id=teacher_id, day=day, slot=slot, available=available_bool)
+        record = Availability(teacher_id=teacher_id, subject=subject, day=day, slot=slot, available=available_bool)
         db.add(record)
     else:
         record.available = available_bool
-
     db.commit()
     return {"success": True, "msg": "Availability updated successfully"}
-
 
 # ------------------- Generate Timetable -------------------
 @router.post("/generate_timetable")
