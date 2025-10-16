@@ -28,6 +28,7 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
+
 # ------------------- Upload Teachers -------------------
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -76,7 +77,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 teacher.max_sessions_per_day = max_sessions_per_day
                 teacher.available = available
             else:
-                # Insert new teacher
+                # Insert new
                 teacher = Teacher(
                     teacher_id=teacher_id,
                     name=name,
@@ -90,18 +91,17 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                     available=available
                 )
                 db.add(teacher)
+                db.flush()
                 teachers_added += 1
-                db.flush()  # get teacher.id
 
-                # Add default availability for 5 days x 7 slots
+                # Create default availability for 5 days × 7 slots
                 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                slots = ["1","2","3","4","5","6","7"]
                 for d in days:
-                    for s in slots:
+                    for s in range(1, 8):
                         db.add(Availability(
                             teacher_id=teacher.teacher_id,
                             day=d,
-                            slot=s,
+                            slot=str(s),
                             available=True
                         ))
 
@@ -111,6 +111,7 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
+
 
 # ------------------- Upload Students -------------------
 @router.post("/upload_students")
@@ -134,25 +135,23 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
                 department=row["department"].strip(),
                 semester=row["semester"].strip(),
                 section=row["section"].strip(),
-                class_teacher=row.get("class_teacher","").strip(),
+                class_teacher=row.get("class_teacher", "").strip(),
                 password=row["password"].strip(),
                 is_first_login=True
             )
             db.merge(student)
             students_added += 1
 
-            # Track unique semester-section
             semester_section_pairs.add((
                 int(row["semester"].strip()),
                 row["department"].strip(),
                 row["section"].strip(),
-                row.get("class_teacher","").strip()
+                row.get("class_teacher", "").strip()
             ))
-
         except KeyError as e:
             raise HTTPException(status_code=400, detail=f"Missing column in CSV: {e}")
 
-    # Populate Semesters and Sections
+    # Populate Semesters & Sections
     for semester_number, department, section_name, class_teacher in semester_section_pairs:
         semester_obj = db.query(Semester).filter_by(semester_number=semester_number, department=department).first()
         if not semester_obj:
@@ -167,17 +166,41 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
     db.commit()
     return {"msg": f"✅ {students_added} students uploaded successfully with semesters & sections created"}
 
+
 # ------------------- Get Teachers -------------------
 @router.get("/get_teachers")
 def get_teachers(db: Session = Depends(get_db)):
     teachers = db.query(Teacher).all()
-    return teachers
+    return [
+        {
+            "teacher_id": t.teacher_id,
+            "name": t.name,
+            "subject": t.subjects_capable
+        } for t in teachers
+    ]
+
 
 # ------------------- Get Availability -------------------
 @router.get("/get_availability/{teacher_id}")
 def get_availability(teacher_id: int, db: Session = Depends(get_db)):
-    avail = db.query(Availability).filter_by(teacher_id=teacher_id).all()
-    return [{"day": a.day, "slot": a.slot, "available": a.available} for a in avail]
+    records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
+
+    # If no records exist, create defaults dynamically
+    if not records:
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        for d in days:
+            for s in range(1, 8):
+                db.add(Availability(
+                    teacher_id=teacher_id,
+                    day=d,
+                    slot=str(s),
+                    available=True
+                ))
+        db.commit()
+        records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
+
+    return [{"day": r.day, "slot": r.slot, "available": r.available} for r in records]
+
 
 # ------------------- Update Availability -------------------
 @router.post("/update_availability")
@@ -185,17 +208,21 @@ def update_availability(
     teacher_id: int = Form(...),
     day: str = Form(...),
     slot: str = Form(...),
-    available: bool = Form(...),
+    available: str = Form(...),  # received as "true"/"false" from JS
     db: Session = Depends(get_db)
 ):
-    avail = db.query(Availability).filter_by(teacher_id=teacher_id, day=day, slot=slot).first()
-    if not avail:
-        avail = Availability(teacher_id=teacher_id, day=day, slot=slot, available=available)
-        db.add(avail)
+    available_bool = True if available.lower() == "true" else False
+
+    record = db.query(Availability).filter_by(teacher_id=teacher_id, day=day, slot=slot).first()
+    if not record:
+        record = Availability(teacher_id=teacher_id, day=day, slot=slot, available=available_bool)
+        db.add(record)
     else:
-        avail.available = available
+        record.available = available_bool
+
     db.commit()
-    return {"success": True, "msg": "Availability updated"}
+    return {"success": True, "msg": "Availability updated successfully"}
+
 
 # ------------------- Generate Timetable -------------------
 @router.post("/generate_timetable")
