@@ -28,7 +28,6 @@ def admin_login(data: AdminLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"success": True, "name": admin.username, "message": "Login successful"}
 
-
 # ------------------- Upload Teachers -------------------
 @router.post("/upload_teachers")
 async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(get_db)):
@@ -44,7 +43,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
         "Max Sessions Per Day": "max_sessions_per_day",
         "Available": "available",
     }
-
     try:
         contents = await file.read()
         decoded = contents.decode("utf-8-sig").splitlines()
@@ -66,7 +64,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
 
             teacher = db.query(Teacher).filter_by(teacher_id=teacher_id).first()
             if teacher:
-                # Update existing
                 teacher.name = name
                 teacher.email = email
                 teacher.department = department
@@ -77,7 +74,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 teacher.max_sessions_per_day = max_sessions_per_day
                 teacher.available = available
             else:
-                # Insert new
                 teacher = Teacher(
                     teacher_id=teacher_id,
                     name=name,
@@ -94,16 +90,19 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
                 db.flush()
                 teachers_added += 1
 
-                # Create default availability for 5 days × 7 slots
+                # Create default availability for 5 days × 7 slots × subjects
                 days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+                subjects = [s.strip() for s in subjects_capable.split(",")] if subjects_capable else ["General"]
                 for d in days:
                     for s in range(1, 8):
-                        db.add(Availability(
-                            teacher_id=teacher.teacher_id,
-                            day=d,
-                            slot=str(s),
-                            available=True
-                        ))
+                        for subj in subjects:
+                            db.add(Availability(
+                                teacher_id=teacher.teacher_id,
+                                day=d,
+                                slot=str(s),
+                                subject=subj,
+                                available=True
+                            ))
 
         db.commit()
         return {"msg": f"✅ {teachers_added} teachers uploaded/updated successfully with availability"}
@@ -111,7 +110,6 @@ async def upload_teachers(file: UploadFile = File(...), db: Session = Depends(ge
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Upload failed: {str(e)}")
-
 
 # ------------------- Upload Students -------------------
 @router.post("/upload_students")
@@ -166,7 +164,6 @@ async def upload_students(file: UploadFile = File(...), db: Session = Depends(ge
     db.commit()
     return {"msg": f"✅ {students_added} students uploaded successfully with semesters & sections created"}
 
-
 # ------------------- Get Teachers -------------------
 @router.get("/get_teachers")
 def get_teachers(db: Session = Depends(get_db)):
@@ -179,27 +176,30 @@ def get_teachers(db: Session = Depends(get_db)):
         } for t in teachers
     ]
 
-
 # ------------------- Get Availability -------------------
-@router.get("/get_availability/{teacher_id}/{subject}")
-def get_availability(teacher_id: int, subject: str, db: Session = Depends(get_db)):
-    records = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject).all()
+@router.get("/get_availability/{teacher_id}")
+def get_availability(teacher_id: int, db: Session = Depends(get_db)):
+    records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
     if not records:
-        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-        for d in days:
-            for s in range(1, 8):
-                db.add(Availability(
-                    teacher_id=teacher_id,
-                    subject=subject,
-                    day=d,
-                    slot=str(s),
-                    available=True
-                ))
-        db.commit()
-        records = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject).all()
-    return [{"day": r.day, "slot": r.slot, "available": r.available} for r in records]
+        teacher = db.query(Teacher).filter_by(teacher_id=teacher_id).first()
+        if teacher:
+            subjects = [s.strip() for s in teacher.subjects_capable.split(",")] if teacher.subjects_capable else ["General"]
+            days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            for d in days:
+                for s in range(1, 8):
+                    for subj in subjects:
+                        db.add(Availability(
+                            teacher_id=teacher_id,
+                            day=d,
+                            slot=str(s),
+                            subject=subj,
+                            available=True
+                        ))
+            db.commit()
+            records = db.query(Availability).filter_by(teacher_id=teacher_id).all()
+    return [{"day": r.day, "slot": r.slot, "subject": r.subject, "available": r.available} for r in records]
 
-
+# ------------------- Update Availability -------------------
 @router.post("/update_availability")
 def update_availability(
     teacher_id: int = Form(...),
@@ -209,7 +209,7 @@ def update_availability(
     available: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    available_bool = True if available.lower() == "true" else False
+    available_bool = available.lower() == "true"
     record = db.query(Availability).filter_by(teacher_id=teacher_id, subject=subject, day=day, slot=slot).first()
     if not record:
         record = Availability(teacher_id=teacher_id, subject=subject, day=day, slot=slot, available=available_bool)

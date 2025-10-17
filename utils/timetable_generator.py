@@ -1,36 +1,37 @@
 from datetime import datetime
 from collections import defaultdict
 import random
-from models import Teacher, Student, Timetable
-from crud import get_teachers_by_subject, get_teacher_availability, create_timetable_entry, get_students_by_semester_section
+from routes.timetable import get_teachers_by_subject, get_teacher_availability, create_timetable_entry, get_students_by_semester_section
+
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-SLOTS = ["8:30-9:30", "9:30-10:30", "10:30-10:45", "10:45-11:45", "11:45-12:45", 
+SLOTS = ["8:30-9:30", "9:30-10:30", "10:30-10:45", "10:45-11:45", "11:45-12:45",
          "12:45-1:30", "1:30-2:30", "2:30-3:30", "3:30-4:30"]
 
 MAX_SLOTS_PER_TEACHER_PER_DAY = 4
 
 def send_notification(message, recipients):
-    # Placeholder: implement email notifications
+    # Placeholder for email/notifications
     print(f"[Notification] To: {recipients} => {message}")
 
 def generate_timetable_for_section(db, semester: int, section: str, class_teacher_name: str):
     """
-    Generate timetable for given semester, section, and assign the class teacher.
+    Generate timetable for a semester and section considering teacher availability
     """
     students = get_students_by_semester_section(db, semester, section)
     if not students:
         return []
 
-    # Find the class teacher object
+    # Find class teacher
     class_teacher = db.query(Teacher).filter(Teacher.name == class_teacher_name).first()
     if not class_teacher:
         raise Exception(f"Class Teacher '{class_teacher_name}' not found")
 
-    # Get all subjects in this semester from assigned teachers
+    # Collect subjects in this semester
     subjects = set()
-    for student in students:
-        for teacher in db.query(Teacher).filter(Teacher.semester_handling == semester).all():
+    teachers = db.query(Teacher).filter(Teacher.semester_handling == semester).all()
+    for teacher in teachers:
+        if teacher.subjects_capable:
             for subj in teacher.subjects_capable.split(","):
                 subjects.add(subj.strip())
     subjects = list(subjects)
@@ -43,7 +44,7 @@ def generate_timetable_for_section(db, semester: int, section: str, class_teache
             if "Break" in slot or "Lunch" in slot:
                 continue
 
-            # Optional: assign class teacher in first slot of day for homeroom/advisory
+            # First slot: assign class teacher
             if slot == "8:30-9:30":
                 entry = create_timetable_entry(db, day, slot, semester, section, class_teacher.id, "Class Teacher")
                 timetable.append(entry)
@@ -51,14 +52,14 @@ def generate_timetable_for_section(db, semester: int, section: str, class_teache
                 continue
 
             for subj in subjects:
-                teachers = get_teachers_by_subject(db, subj)
-                random.shuffle(teachers)
-
                 assigned = False
-                for teacher in teachers:
-                    availability = get_teacher_availability(db, teacher.id, day, slot)
+                subj_teachers = get_teachers_by_subject(db, subj)
+                random.shuffle(subj_teachers)
+
+                for teacher in subj_teachers:
+                    availability = get_teacher_availability(db, teacher.id, day, slot, subj)
                     if availability and teacher_slot_count[teacher.id][day] < MAX_SLOTS_PER_TEACHER_PER_DAY:
-                        # Assign if not already teaching this section at this slot
+                        # Check if teacher already assigned in this slot
                         if not any(t.slot == slot and t.day == day and t.section == section and t.teacher_id == teacher.id for t in timetable):
                             entry = create_timetable_entry(db, day, slot, semester, section, teacher.id, subj)
                             timetable.append(entry)
@@ -66,12 +67,12 @@ def generate_timetable_for_section(db, semester: int, section: str, class_teache
                             assigned = True
                             break
 
+                # If not assigned, try any available teacher
                 if not assigned:
-                    # Assign any available teacher
                     all_teachers = db.query(Teacher).all()
                     random.shuffle(all_teachers)
                     for teacher in all_teachers:
-                        availability = get_teacher_availability(db, teacher.id, day, slot)
+                        availability = get_teacher_availability(db, teacher.id, day, slot, subj)
                         if availability and teacher_slot_count[teacher.id][day] < MAX_SLOTS_PER_TEACHER_PER_DAY:
                             entry = create_timetable_entry(db, day, slot, semester, section, teacher.id, subj)
                             timetable.append(entry)
