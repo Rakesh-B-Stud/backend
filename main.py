@@ -1,3 +1,4 @@
+# main.py
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,15 +7,12 @@ from database import Base, engine
 from models import Admin
 from routes import admin, student, timetable
 
-# -------------------- Create tables --------------------
-Base.metadata.create_all(bind=engine)
-
-# -------------------- FastAPI app --------------------
+# -------------------- Initialize app --------------------
 app = FastAPI(title="SJBIT Timetable Portal API")
 
 # -------------------- CORS --------------------
 origins = [
-    "http://localhost:3000",  # local frontend
+    "http://localhost:3000",
     "https://timetablefrontend-one.vercel.app",
     "https://timetablefrontend-ooy3srak6-rakesh-bs-projects-efb49d55.vercel.app",
     "https://timetablefrontend-7uom3iksq-rakesh-bs-projects-efb49d55.vercel.app"
@@ -28,19 +26,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- Routers --------------------
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
-# main.py
-app.include_router(student.router)  # prefix already in router
+# -------------------- Create Tables --------------------
+Base.metadata.create_all(bind=engine)
 
-app.include_router(timetable.router, prefix="/timetable", tags=["Timetable"])
+# -------------------- Include Routes --------------------
+app.include_router(admin.router)
+app.include_router(student.router)
+app.include_router(timetable.router)
 
 # -------------------- Root route --------------------
 @app.get("/")
 def home():
     return {"message": "Welcome to SJBIT Timetable Portal API"}
 
-# -------------------- Default admin --------------------
+# -------------------- Default Admin --------------------
 def create_default_admin():
     db = Session(bind=engine)
     existing = db.query(Admin).filter_by(username="rakesh.b.r8b@gmail.com").first()
@@ -53,8 +52,8 @@ def create_default_admin():
 
 create_default_admin()
 
-# -------------------- Run uvicorn --------------------
+# -------------------- Run server --------------------
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))  # Render sets PORT dynamically
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
