@@ -30,7 +30,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 # -------------------- Include Routes --------------------
-app.include_router(admin.router)
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(student.router)
 app.include_router(timetable.router)
 
