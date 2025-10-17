@@ -76,7 +76,7 @@ class Timetable(Base):
     slot = Column(String)
     subject = Column(String)
     teacher_id = Column(Integer, ForeignKey("teachers.teacher_id"))
-
+    is_published = Column(Boolean, default=False)
     teacher = relationship("Teacher", back_populates="timetable_entries")
 
 
